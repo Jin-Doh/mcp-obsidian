@@ -115,5 +115,7 @@ async def main():
 
     async with stdio_server() as (read_stream, write_stream):
         await app.run(
-            read_stream, write_stream, app.create_initialization_options()
+            read_stream,
+            write_stream,
+            app.create_initialization_options(),
         )

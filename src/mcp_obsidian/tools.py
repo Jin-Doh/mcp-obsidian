@@ -1,3 +1,5 @@
+"""Tool handlers for MCP-Obsidian server implementation."""
+
 import json
 import os
 from collections.abc import Sequence
@@ -17,23 +19,57 @@ TOOL_LIST_FILES_IN_DIR = "obsidian_list_files_in_dir"
 
 
 class ToolHandler:
+    """Base class for tool handlers."""
+
     def __init__(self, tool_name: str):
+        """Initialize the tool handler.
+
+        Args:
+            tool_name: Name of the tool
+        """
         self.name = tool_name
 
     def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+
+        Raises:
+            NotImplementedError: This method must be implemented by subclasses
+        """
         raise NotImplementedError()
 
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the tool with given arguments.
+
+        Args:
+            args: Tool arguments
+
+        Returns:
+            Tool execution results
+
+        Raises:
+            NotImplementedError: This method must be implemented by subclasses
+        """
         raise NotImplementedError()
 
 
 class ListFilesInVaultToolHandler(ToolHandler):
+    """Handler for listing files in the Obsidian vault."""
+
     def __init__(self):
+        """Initialize the list files in vault tool handler."""
         super().__init__(TOOL_LIST_FILES_IN_VAULT)
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Lists all files and directories in the root directory of your Obsidian vault.",
@@ -43,19 +79,32 @@ class ListFilesInVaultToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the list files in vault tool.
 
+        Args:
+            args: Tool arguments (none required)
+
+        Returns:
+            List of files in the vault root
+        """
         api = obsidian.Obsidian(api_key=api_key)
-
         files = api.list_files_in_vault()
-
         return [TextContent(type="text", text=json.dumps(files, indent=2))]
 
 
 class ListFilesInDirToolHandler(ToolHandler):
+    """Handler for listing files in a specific directory."""
+
     def __init__(self):
+        """Initialize the list files in directory tool handler."""
         super().__init__(TOOL_LIST_FILES_IN_DIR)
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Lists all files and directories that exist in a specific Obsidian directory.",
@@ -74,22 +123,37 @@ class ListFilesInDirToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the list files in directory tool.
 
+        Args:
+            args: Tool arguments including dirpath
+
+        Returns:
+            List of files in the specified directory
+
+        Raises:
+            RuntimeError: If dirpath argument is missing
+        """
         if "dirpath" not in args:
             raise RuntimeError("dirpath argument missing in arguments")
-
         api = obsidian.Obsidian(api_key=api_key)
-
         files = api.list_files_in_dir(args["dirpath"])
-
         return [TextContent(type="text", text=json.dumps(files, indent=2))]
 
 
 class GetFileContentsToolHandler(ToolHandler):
+    """Handler for getting file contents."""
+
     def __init__(self):
+        """Initialize the get file contents tool handler."""
         super().__init__("obsidian_get_file_contents")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Return the content of a single file in your vault.",
@@ -109,21 +173,37 @@ class GetFileContentsToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the get file contents tool.
+
+        Args:
+            args: Tool arguments including filepath
+
+        Returns:
+            Content of the specified file
+
+        Raises:
+            RuntimeError: If filepath argument is missing
+        """
         if "filepath" not in args:
             raise RuntimeError("filepath argument missing in arguments")
-
         api = obsidian.Obsidian(api_key=api_key)
-
         content = api.get_file_contents(args["filepath"])
-
         return [TextContent(type="text", text=json.dumps(content, indent=2))]
 
 
 class SearchToolHandler(ToolHandler):
+    """Handler for simple text search."""
+
     def __init__(self):
+        """Initialize the search tool handler."""
         super().__init__("obsidian_simple_search")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="""Simple search for documents matching a specified text query across all files in the vault.
@@ -148,14 +228,22 @@ class SearchToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the search tool.
+
+        Args:
+            args: Tool arguments including query and optional context_length
+
+        Returns:
+            Search results with context
+
+        Raises:
+            RuntimeError: If query argument is missing
+        """
         if "query" not in args:
             raise RuntimeError("query argument missing in arguments")
-
         context_length = args.get("context_length", 100)
-
         api = obsidian.Obsidian(api_key=api_key)
         results = api.search(args["query"], context_length)
-
         formatted_results = []
         for result in results:
             formatted_matches = []
@@ -164,11 +252,9 @@ class SearchToolHandler(ToolHandler):
                 match_pos = match.get("match", {})
                 start = match_pos.get("start", 0)
                 end = match_pos.get("end", 0)
-
                 formatted_matches.append(
                     {"context": context, "match_position": {"start": start, "end": end}}
                 )
-
             formatted_results.append(
                 {
                     "filename": result.get("filename", ""),
@@ -176,15 +262,22 @@ class SearchToolHandler(ToolHandler):
                     "matches": formatted_matches,
                 }
             )
-
         return [TextContent(type="text", text=json.dumps(formatted_results, indent=2))]
 
 
 class AppendContentToolHandler(ToolHandler):
+    """Handler for appending content to files."""
+
     def __init__(self):
+        """Initialize the append content tool handler."""
         super().__init__("obsidian_append_content")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Append content to a new or existing file in the vault.",
@@ -208,12 +301,21 @@ class AppendContentToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the append content tool.
+
+        Args:
+            args: Tool arguments including filepath and content
+
+        Returns:
+            Success message
+
+        Raises:
+            RuntimeError: If required arguments are missing
+        """
         if "filepath" not in args or "content" not in args:
             raise RuntimeError("filepath and content arguments required")
-
         api = obsidian.Obsidian(api_key=api_key)
         api.append_content(args.get("filepath", ""), args["content"])
-
         return [
             TextContent(
                 type="text", text=f"Successfully appended content to {args['filepath']}"
@@ -222,10 +324,18 @@ class AppendContentToolHandler(ToolHandler):
 
 
 class PatchContentToolHandler(ToolHandler):
+    """Handler for patching content in files."""
+
     def __init__(self):
+        """Initialize the patch content tool handler."""
         super().__init__("obsidian_patch_content")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Insert content into an existing note relative to a heading, block reference, or frontmatter field.",
@@ -266,10 +376,20 @@ class PatchContentToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the patch content tool.
+
+        Args:
+            args: Tool arguments including filepath, operation, target_type, target, and content
+
+        Returns:
+            Success message
+
+        Raises:
+            RuntimeError: If required arguments are missing
+        """
         required = ["filepath", "operation", "target_type", "target", "content"]
         if not all(key in args for key in required):
             raise RuntimeError(f"Missing required arguments: {', '.join(required)}")
-
         api = obsidian.Obsidian(api_key=api_key)
         api.patch_content(
             args.get("filepath", ""),
@@ -278,7 +398,6 @@ class PatchContentToolHandler(ToolHandler):
             args.get("target", ""),
             args.get("content", ""),
         )
-
         return [
             TextContent(
                 type="text", text=f"Successfully patched content in {args['filepath']}"
@@ -287,15 +406,22 @@ class PatchContentToolHandler(ToolHandler):
 
 
 class ComplexSearchToolHandler(ToolHandler):
+    """Handler for complex search using JsonLogic queries."""
+
     def __init__(self):
+        """Initialize the complex search tool handler."""
         super().__init__("obsidian_complex_search")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="""Complex search for documents using a JsonLogic query.
            Supports standard JsonLogic operators plus 'glob' and 'regexp' for pattern matching. Results must be non-falsy.
-
            Use this tool when you want to do a complex search, e.g. for all documents with certain tags etc.
            """,
             inputSchema={
@@ -313,20 +439,37 @@ class ComplexSearchToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the complex search tool.
+
+        Args:
+            args: Tool arguments including query
+
+        Returns:
+            Search results
+
+        Raises:
+            RuntimeError: If query argument is missing
+        """
         if "query" not in args:
             raise RuntimeError("query argument missing in arguments")
-
         api = obsidian.Obsidian(api_key=api_key)
         results = api.search_json(args.get("query", ""))
-
         return [TextContent(type="text", text=json.dumps(results, indent=2))]
 
 
 class BatchGetFileContentsToolHandler(ToolHandler):
+    """Handler for getting contents of multiple files."""
+
     def __init__(self):
+        """Initialize the batch get file contents tool handler."""
         super().__init__("obsidian_batch_get_file_contents")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Return the contents of multiple files in your vault, concatenated with headers.",
@@ -350,20 +493,37 @@ class BatchGetFileContentsToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the batch get file contents tool.
+
+        Args:
+            args: Tool arguments including filepaths
+
+        Returns:
+            Contents of all specified files
+
+        Raises:
+            RuntimeError: If filepaths argument is missing
+        """
         if "filepaths" not in args:
             raise RuntimeError("filepaths argument missing in arguments")
-
         api = obsidian.Obsidian(api_key=api_key)
         content = api.get_batch_file_contents(args["filepaths"])
-
         return [TextContent(type="text", text=content)]
 
 
 class PeriodicNotesToolHandler(ToolHandler):
+    """Handler for getting periodic notes."""
+
     def __init__(self):
+        """Initialize the periodic notes tool handler."""
         super().__init__("obsidian_get_periodic_note")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Get current periodic note for the specified period.",
@@ -383,27 +543,43 @@ class PeriodicNotesToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the periodic notes tool.
+
+        Args:
+            args: Tool arguments including period
+
+        Returns:
+            Content of the periodic note
+
+        Raises:
+            RuntimeError: If period argument is missing or invalid
+        """
         if "period" not in args:
             raise RuntimeError("period argument missing in arguments")
-
         period = args["period"]
         valid_periods = ["daily", "weekly", "monthly", "quarterly", "yearly"]
         if period not in valid_periods:
             raise RuntimeError(
                 f"Invalid period: {period}. Must be one of: {', '.join(valid_periods)}"
             )
-
         api = obsidian.Obsidian(api_key=api_key)
         content = api.get_periodic_note(period)
-
         return [TextContent(type="text", text=content)]
 
 
 class RecentPeriodicNotesToolHandler(ToolHandler):
+    """Handler for getting recent periodic notes."""
+
     def __init__(self):
+        """Initialize the recent periodic notes tool handler."""
         super().__init__("obsidian_get_recent_periodic_notes")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Get most recent periodic notes for the specified period type.",
@@ -435,9 +611,19 @@ class RecentPeriodicNotesToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the recent periodic notes tool.
+
+        Args:
+            args: Tool arguments including period
+
+        Returns:
+            List of recent periodic notes
+
+        Raises:
+            RuntimeError: If period argument is missing or invalid, or if limit is invalid
+        """
         if "period" not in args:
             raise RuntimeError("period argument missing in arguments")
-
         period = args["period"]
         valid_periods = ["daily", "weekly", "monthly", "quarterly", "yearly"]
         if period not in valid_periods:
@@ -457,15 +643,22 @@ class RecentPeriodicNotesToolHandler(ToolHandler):
 
         api = obsidian.Obsidian(api_key=api_key)
         results = api.get_recent_periodic_notes(period, limit, include_content)
-
         return [TextContent(type="text", text=json.dumps(results, indent=2))]
 
 
 class RecentChangesToolHandler(ToolHandler):
+    """Handler for getting recently modified files."""
+
     def __init__(self):
+        """Initialize the recent changes tool handler."""
         super().__init__("obsidian_get_recent_changes")
 
-    def get_tool_description(self):
+    def get_tool_description(self) -> Tool:
+        """Get the tool's description.
+
+        Returns:
+            Tool description
+        """
         return Tool(
             name=self.name,
             description="Get recently modified files in the vault.",
@@ -492,6 +685,17 @@ class RecentChangesToolHandler(ToolHandler):
     def run_tool(
         self, args: dict
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Run the recent changes tool.
+
+        Args:
+            args: Tool arguments including optional limit and days
+
+        Returns:
+            List of recently modified files
+
+        Raises:
+            RuntimeError: If limit or days arguments are invalid
+        """
         limit = args.get("limit", 10)
         if not isinstance(limit, int) or limit < 1:
             raise RuntimeError(f"Invalid limit: {limit}. Must be a positive integer")
@@ -502,5 +706,4 @@ class RecentChangesToolHandler(ToolHandler):
 
         api = obsidian.Obsidian(api_key=api_key)
         results = api.get_recent_changes(limit, days)
-
         return [TextContent(type="text", text=json.dumps(results, indent=2))]

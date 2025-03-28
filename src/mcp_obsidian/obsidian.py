@@ -5,6 +5,12 @@ import requests
 
 
 class Obsidian:
+    """Obsidian Local REST API client for interacting with Obsidian vault.
+
+    This class provides methods to interact with an Obsidian vault through the Local REST API.
+    It supports operations like listing files, reading contents, searching, and modifying notes.
+    """
+
     def __init__(
         self,
         api_key: str,
@@ -13,6 +19,15 @@ class Obsidian:
         port: int = 27124,
         verify_ssl: bool = False,
     ):
+        """Initialize the Obsidian API client.
+
+        Args:
+            api_key: The API key for authentication
+            protocol: The protocol to use (http/https)
+            host: The host address of the Obsidian Local REST API
+            port: The port number of the Obsidian Local REST API
+            verify_ssl: Whether to verify SSL certificates
+        """
         self.api_key = api_key
         self.protocol = protocol
         self.host = host
@@ -21,13 +36,34 @@ class Obsidian:
         self.timeout = (3, 6)
 
     def get_base_url(self) -> str:
+        """Get the base URL for the Obsidian Local REST API.
+
+        Returns:
+            The base URL string
+        """
         return f"{self.protocol}://{self.host}:{self.port}"
 
     def _get_headers(self) -> dict:
+        """Get the headers required for API requests.
+
+        Returns:
+            Dictionary containing the authorization header
+        """
         headers = {"Authorization": f"Bearer {self.api_key}"}
         return headers
 
     def _safe_call(self, f) -> Any:
+        """Safely execute an API call and handle errors.
+
+        Args:
+            f: Function to execute that makes the API call
+
+        Returns:
+            The result of the API call
+
+        Raises:
+            Exception: If the API call fails
+        """
         try:
             return f()
         except requests.HTTPError as e:
@@ -39,6 +75,11 @@ class Obsidian:
             raise Exception(f"Request failed: {str(e)}")
 
     def list_files_in_vault(self) -> Any:
+        """List all files in the Obsidian vault.
+
+        Returns:
+            List of files in the vault
+        """
         url = f"{self.get_base_url()}/vault/"
 
         def call_fn():
@@ -55,6 +96,14 @@ class Obsidian:
         return self._safe_call(call_fn)
 
     def list_files_in_dir(self, dirpath: str) -> Any:
+        """List files in a specific directory in the vault.
+
+        Args:
+            dirpath: Path to the directory relative to vault root
+
+        Returns:
+            List of files in the specified directory
+        """
         url = f"{self.get_base_url()}/vault/{dirpath}/"
 
         def call_fn():
@@ -71,6 +120,14 @@ class Obsidian:
         return self._safe_call(call_fn)
 
     def get_file_contents(self, filepath: str) -> Any:
+        """Get the contents of a specific file.
+
+        Args:
+            filepath: Path to the file relative to vault root
+
+        Returns:
+            Contents of the specified file
+        """
         url = f"{self.get_base_url()}/vault/{filepath}"
 
         def call_fn():
@@ -110,6 +167,15 @@ class Obsidian:
         return "".join(result)
 
     def search(self, query: str, context_length: int = 100) -> Any:
+        """Search for content in the vault.
+
+        Args:
+            query: Search query string
+            context_length: Number of characters of context to return around matches
+
+        Returns:
+            Search results with matching content and context
+        """
         url = f"{self.get_base_url()}/search/simple/"
         params = {"query": query, "contextLength": context_length}
 
@@ -127,6 +193,15 @@ class Obsidian:
         return self._safe_call(call_fn)
 
     def append_content(self, filepath: str, content: str) -> Any:
+        """Append content to a file.
+
+        Args:
+            filepath: Path to the file relative to vault root
+            content: Content to append
+
+        Returns:
+            None on success
+        """
         url = f"{self.get_base_url()}/vault/{filepath}"
 
         def call_fn():
@@ -145,6 +220,18 @@ class Obsidian:
     def patch_content(
         self, filepath: str, operation: str, target_type: str, target: str, content: str
     ) -> Any:
+        """Patch content in a file relative to a specific target.
+
+        Args:
+            filepath: Path to the file relative to vault root
+            operation: Operation to perform (append, prepend, replace)
+            target_type: Type of target (heading, block, frontmatter)
+            target: Target identifier
+            content: Content to patch
+
+        Returns:
+            None on success
+        """
         url = f"{self.get_base_url()}/vault/{filepath}"
 
         headers = self._get_headers() | {
@@ -168,6 +255,14 @@ class Obsidian:
         return self._safe_call(call_fn)
 
     def search_json(self, query: dict) -> Any:
+        """Perform a complex search using JsonLogic query.
+
+        Args:
+            query: JsonLogic query object
+
+        Returns:
+            Search results matching the query
+        """
         url = f"{self.get_base_url()}/search/"
 
         headers = self._get_headers() | {
